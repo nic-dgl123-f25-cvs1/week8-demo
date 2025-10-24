@@ -1,0 +1,278 @@
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    PHP PDO QUICK REFERENCE CHEAT SHEET                  │
+│                     Fetching Data from MySQL Database                   │
+└─────────────────────────────────────────────────────────────────────────┘
+
+═══════════════════════════════════════════════════════════════════════════
+1. ESTABLISHING CONNECTION
+═══════════════════════════════════════════════════════════════════════════
+
+// Data Source Name (DSN)
+$dsn = "mysql:host=localhost;dbname=database_name;charset=utf8mb4";
+
+// PDO Options
+$options = [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,      // Throw exceptions
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, // Default fetch mode
+    PDO::ATTR_EMULATE_PREPARES => false,              // Real prepared statements
+];
+
+// Create Connection
+try {
+    $pdo = new PDO($dsn, $username, $password, $options);
+} catch (PDOException $e) {
+    die("Connection failed: " . $e->getMessage());
+}
+
+═══════════════════════════════════════════════════════════════════════════
+2. SIMPLE QUERIES (No Parameters)
+═══════════════════════════════════════════════════════════════════════════
+
+// Execute simple query
+$stmt = $pdo->query("SELECT * FROM students");
+
+// Fetch all rows
+$rows = $stmt->fetchAll();
+
+// Loop through results
+foreach ($rows as $row) {
+    echo $row['name'];
+}
+
+═══════════════════════════════════════════════════════════════════════════
+3. PREPARED STATEMENTS (With Parameters) ⭐ RECOMMENDED
+═══════════════════════════════════════════════════════════════════════════
+
+// Named Parameters (Recommended)
+$sql = "SELECT * FROM students WHERE id = :id AND major = :major";
+$stmt = $pdo->prepare($sql);
+$stmt->execute(['id' => 5, 'major' => 'Computer Science']);
+$row = $stmt->fetch();
+
+// Positional Parameters
+$sql = "SELECT * FROM students WHERE id = ? AND major = ?";
+$stmt = $pdo->prepare($sql);
+$stmt->execute([5, 'Computer Science']);
+$row = $stmt->fetch();
+
+═══════════════════════════════════════════════════════════════════════════
+4. FETCHING DATA
+═══════════════════════════════════════════════════════════════════════════
+
+fetch()           // Returns single row, or false if no more rows
+fetchAll()        // Returns array of all rows
+fetchColumn()     // Returns single column from next row
+rowCount()        // Returns number of affected rows (for UPDATE/DELETE)
+
+// Examples:
+$row = $stmt->fetch();              // Get one row
+$rows = $stmt->fetchAll();          // Get all rows
+$name = $stmt->fetchColumn();       // Get first column value
+$count = $stmt->rowCount();         // Count affected rows
+
+═══════════════════════════════════════════════════════════════════════════
+5. FETCH MODES
+═══════════════════════════════════════════════════════════════════════════
+
+PDO::FETCH_ASSOC       // Associative array ['name' => 'John']
+PDO::FETCH_NUM         // Numeric array [0 => 'John', 1 => 'john@email.com']
+PDO::FETCH_OBJ         // Object ($row->name)
+PDO::FETCH_COLUMN      // Array of single column values
+PDO::FETCH_KEY_PAIR    // Key-value pairs [id => name]
+
+// Usage:
+$rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$rows = $stmt->fetchAll(PDO::FETCH_OBJ);
+$names = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+
+═══════════════════════════════════════════════════════════════════════════
+6. COMMON SQL PATTERNS
+═══════════════════════════════════════════════════════════════════════════
+
+// SELECT with WHERE
+SELECT * FROM students WHERE major = :major
+
+// SELECT with LIKE (wildcards)
+SELECT * FROM students WHERE name LIKE :search
+// Execute: ['search' => '%John%']
+
+// SELECT with ORDER BY
+SELECT * FROM students ORDER BY name ASC, gpa DESC
+
+// SELECT with LIMIT
+SELECT * FROM students LIMIT 10 OFFSET 20
+
+// COUNT
+SELECT COUNT(*) as total FROM students
+
+// GROUP BY with COUNT
+SELECT major, COUNT(*) as count FROM students GROUP BY major
+
+// Aggregate Functions
+SELECT MIN(gpa), MAX(gpa), AVG(gpa) FROM students
+
+═══════════════════════════════════════════════════════════════════════════
+7. ERROR HANDLING
+═══════════════════════════════════════════════════════════════════════════
+
+try {
+    $pdo = new PDO($dsn, $user, $pass, $options);
+    
+    $stmt = $pdo->prepare("SELECT * FROM students WHERE id = :id");
+    $stmt->execute(['id' => $id]);
+    $student = $stmt->fetch();
+    
+} catch (PDOException $e) {
+    // Log error
+    error_log($e->getMessage());
+    
+    // Show user-friendly message
+    echo "An error occurred. Please try again.";
+}
+
+═══════════════════════════════════════════════════════════════════════════
+8. SECURITY BEST PRACTICES ⚠️
+═══════════════════════════════════════════════════════════════════════════
+
+✅ DO:
+• Always use prepared statements for dynamic data
+• Use htmlspecialchars() when displaying data
+• Store credentials in config file (not in code)
+• Use try-catch for error handling
+• Enable PDO error mode to ERRMODE_EXCEPTION
+
+❌ DON'T:
+• Never concatenate user input into SQL
+• Don't display detailed errors to users (production)
+• Don't store passwords in plain text
+• Don't use deprecated mysql_* functions
+
+// ❌ WRONG (SQL Injection vulnerability)
+$sql = "SELECT * FROM users WHERE id = " . $_GET['id'];
+
+// ✅ CORRECT
+$sql = "SELECT * FROM users WHERE id = :id";
+$stmt = $pdo->prepare($sql);
+$stmt->execute(['id' => $_GET['id']]);
+
+═══════════════════════════════════════════════════════════════════════════
+9. COMPLETE EXAMPLE
+═══════════════════════════════════════════════════════════════════════════
+
+<?php
+// 1. Configuration
+$dsn = "mysql:host=localhost;dbname=school;charset=utf8mb4";
+$username = "root";
+$password = "";
+$options = [
+    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+];
+
+try {
+    // 2. Connect
+    $pdo = new PDO($dsn, $username, $password, $options);
+    
+    // 3. Prepare
+    $sql = "SELECT name, email, gpa 
+            FROM students 
+            WHERE major = :major AND gpa >= :min_gpa 
+            ORDER BY gpa DESC";
+    
+    // 4. Execute
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        'major' => 'Computer Science',
+        'min_gpa' => 3.5
+    ]);
+    
+    // 5. Fetch
+    $students = $stmt->fetchAll();
+    
+    // 6. Display
+    foreach ($students as $student) {
+        echo htmlspecialchars($student['name']) . "<br>";
+        echo htmlspecialchars($student['email']) . "<br>";
+        echo "GPA: " . htmlspecialchars($student['gpa']) . "<hr>";
+    }
+    
+} catch (PDOException $e) {
+    error_log($e->getMessage());
+    echo "Database error occurred.";
+}
+?>
+
+═══════════════════════════════════════════════════════════════════════════
+10. COMMON MISTAKES TO AVOID
+═══════════════════════════════════════════════════════════════════════════
+
+❌ Forgetting to execute()
+$stmt = $pdo->prepare($sql);
+// Missing: $stmt->execute([...]);
+$row = $stmt->fetch();  // Won't work!
+
+❌ Not using htmlspecialchars() for output
+echo $student['name'];  // XSS vulnerability!
+
+✅ Always escape output
+echo htmlspecialchars($student['name'], ENT_QUOTES, 'UTF-8');
+
+❌ Using query() with user input
+$stmt = $pdo->query("SELECT * FROM users WHERE id = " . $_GET['id']);
+
+✅ Use prepare() and execute()
+$stmt = $pdo->prepare("SELECT * FROM users WHERE id = :id");
+$stmt->execute(['id' => $_GET['id']]);
+
+═══════════════════════════════════════════════════════════════════════════
+11. DEBUGGING TIPS
+═══════════════════════════════════════════════════════════════════════════
+
+// Display errors during development
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Check if connection is successful
+if ($pdo) {
+    echo "Connected successfully!";
+}
+
+// Display query errors
+catch (PDOException $e) {
+    echo "Error: " . $e->getMessage();
+    echo "SQL: " . $sql;  // Show the SQL query
+}
+
+// Check number of rows returned
+$count = $stmt->rowCount();
+echo "Rows found: " . $count;
+
+// Dump fetched data for inspection
+var_dump($students);
+
+═══════════════════════════════════════════════════════════════════════════
+12. USEFUL PDO ATTRIBUTES
+═══════════════════════════════════════════════════════════════════════════
+
+// Set fetch mode for connection
+$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+
+// Get error mode
+$mode = $pdo->getAttribute(PDO::ATTR_ERRMODE);
+
+// Get database driver
+$driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+// Get server info
+$version = $pdo->getAttribute(PDO::ATTR_SERVER_VERSION);
+
+═══════════════════════════════════════════════════════════════════════════
+📚 ADDITIONAL RESOURCES
+═══════════════════════════════════════════════════════════════════════════
+
+Official PHP PDO Manual: https://www.php.net/manual/en/book.pdo.php
+PHP Security Guide: https://www.php.net/manual/en/security.database.php
+
+═══════════════════════════════════════════════════════════════════════════
+                           END OF CHEAT SHEET
+═══════════════════════════════════════════════════════════════════════════
